@@ -1,0 +1,12 @@
+[
+    {
+        "id": 1,
+        "company": "Hello",
+        "position": "Blockchain Developer",
+        "status": "Applied",
+        "date_applied": "2025-05-20",
+        "salary": "12000 AED",
+        "notes": "",
+        "created_at": "2025-05-21 14:57:14"
+    }
+]
