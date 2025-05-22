@@ -3,20 +3,8 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
-
-# File path for job applications data
-JSON_FILE = "job_applications.json"
-
-def load_job_data():
-    """Load job application data from JSON file"""
-    if os.path.exists(JSON_FILE):
-        try:
-            with open(JSON_FILE, "r") as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            # Return empty list if file is empty or invalid
-            return []
-    return []
+from load_json import load_job_data
+from load_json import JSON_FILE
 
 def save_job_data(data):
     """Save job application data to JSON file"""
@@ -29,45 +17,10 @@ def resources_tab2():
     
     # Load existing job data
     job_data = load_job_data()
-    
+    df = pd.DataFrame(job_data)
     # Create sub-tabs for different sections
-    app_tab, new_tab, details_tab = st.tabs(["Your Applications", "Add New", "Application Details"])
-    
-    # Tab 1: Applications List and Details
-    with app_tab:
-        # Create columns for table and details
-        table_col, details_col = st.columns([2, 1])
-        
-        with table_col:
-            st.subheader("Your Job Applications")
-            if not job_data:
-                st.info("No job applications yet. Start adding some!")
-            else:
-                # Convert to DataFrame for display
-                df = pd.DataFrame(job_data)
-                
-                # Format DataFrame for display
-                display_df = df.copy()
-                
-                # Reorder and select columns to display
-                columns_to_display = ["company", "position", "status", "date_applied"]
-                # Add salary column only if it exists
-                if "salary" in display_df.columns:
-                    columns_to_display.append("salary")
-                    
-                # Only select columns that exist in the dataframe
-                display_df = display_df[columns_to_display]
-                
-                # Rename columns for better display
-                display_df.columns = ["Company", "Position", "Status", "Date Applied", "Salary"]
-                
-                # Display table
-                st.dataframe(
-                    display_df,
-                    use_container_width=True,
-                    height=400
-                )           
-    # Tab 2: Add New Application
+    new_tab, details_tab = st.tabs(["Add New", "Application Details"])
+    # Tab 1: Add New Application
     with new_tab:
         st.subheader("Add New Application")
         
@@ -83,11 +36,32 @@ def resources_tab2():
             date_applied = st.date_input("Date Applied", datetime.now())
             
             # Salary if available
-            salary = st.text_input("Salary (Optional)")
+            salary_range = st.text_input("Salary Range (Optional)")
+
+            #Country 
+            country = st.selectbox("Country (Optional)", [
+                # North America
+                "United States", "Canada", "Mexico",
+                # South America 
+                "Brazil", "Argentina", "Chile", "Colombia", "Peru", "Venezuela", "Uruguay", "Paraguay", "Bolivia", "Ecuador",
+                # Europe
+                "United Kingdom", "Germany", "France", "Italy", "Spain", "Netherlands", "Belgium", "Switzerland", "Sweden", 
+                "Norway", "Denmark", "Finland", "Ireland", "Portugal", "Austria", "Poland", "Czech Republic", "Hungary",
+                # Asia
+                "India", "Singapore", "Japan", "Hong Kong", "Taiwan", "Thailand", "United Arab Emirates", "Turkey",
+                # Other
+                "Other"
+            ])
             
             # Notes
             notes = st.text_area("Notes")
-            
+
+            source_of_application = st.text_input("Source of Application (Optional)")
+
+            how_many_rounds = st.number_input("How many rounds of interviews/tests happened?", min_value=0, max_value=10, value=0)
+
+            how_days_ago_posted = st.number_input("How many days ago was the job posted?", min_value=0, max_value=30, value=0)
+
             # Submit button
             submit_button = st.form_submit_button(label="Add Job Application")
             
@@ -99,8 +73,12 @@ def resources_tab2():
                     "position": position,
                     "status": status,
                     "date_applied": date_applied.strftime("%Y-%m-%d"),
-                    "salary": salary,
+                    "salary_range": salary_range,
+                    "country": country,
                     "notes": notes,
+                    "source_of_application": source_of_application,
+                    "how_many_rounds": how_many_rounds,
+                    "how_days_ago_posted": how_days_ago_posted,
                     "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
                 
@@ -113,7 +91,7 @@ def resources_tab2():
                 st.success("Job application added successfully!")
                 st.experimental_rerun()
     
-    # Tab 3: Statistics
+    # Tab 2: Application Details
     with details_tab:
         st.subheader("Application Details")
         if job_data:   
@@ -132,11 +110,14 @@ def resources_tab2():
                         st.write(f"**Details: {selected_job['company']} - {selected_job['position']}**")
                         st.write(f"**Status:** {selected_job['status']}")
                         st.write(f"**Applied on:** {selected_job['date_applied']}")
-                        if selected_job['salary']:
+                        if 'salary' in selected_job and selected_job['salary']:
                             st.write(f"**Salary:** {selected_job['salary']}")
+                        elif 'salary_range' in selected_job and selected_job['salary_range']:
+                            st.write(f"**Salary Range:** {selected_job['salary_range']}")
+                        st.write(f"**Country:** {selected_job['country']}")
                         st.write(f"**Notes:**")
                         st.text_area("", selected_job['notes'], disabled=True, label_visibility="collapsed")
-                        
+                        st.write(f"**Source of Application:** {selected_job['source_of_application']}")
                         # Update status
                         status_options = ["Applied", "Interview Scheduled", "Rejected", "Offer Received", "Accepted", "Declined"]
                         new_status = st.selectbox(
@@ -151,11 +132,24 @@ def resources_tab2():
                                     if job["id"] == selected_id:
                                         job["status"] = new_status
                                         break
-                                
+                                if new_status == "Rejected":
+                                    notes = st.text_area("Notes")
+                                    selected_job['notes'] = notes
+
                                 save_job_data(job_data)
                                 st.success("Status updated!")
                                 st.experimental_rerun()
                         
+                        #Update Number of Rounds
+                        if st.button("Update Number of Rounds"):
+                            new_how_many_rounds = st.number_input("How many rounds of interviews/tests happened?", min_value=1, max_value=10, value=1)
+                            selected_job['how_many_rounds'] = new_how_many_rounds
+                            save_job_data(job_data)
+                            st.success("Number of rounds updated!")
+                            st.experimental_rerun()
+
+                        st.write(f"**How many rounds of interviews/tests happened?** {selected_job['how_many_rounds']}")
+                        st.write(f"**How many days ago was the job posted?** {selected_job['how_days_ago_posted']}") 
                         # Delete button
                         if st.button("Delete", key=f"delete_{selected_id}"):
                             job_data = [job for job in job_data if job["id"] != selected_id]
